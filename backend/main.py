@@ -1,16 +1,20 @@
-from datetime import datetime
+import os
+from datetime import datetime, timezone
 from typing import Literal
-from fastapi import FastAPI
+
+import pymysql
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-app = FastAPI()                      # the server object
+load_dotenv()                            # reads the .env file
 
-# CORS lets your React app (a different port) call this API
+app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"],
                    allow_methods=["*"], allow_headers=["*"])
 
-# The shape of one location record; FastAPI validates incoming JSON against it
+
 class Location(BaseModel):
     device_id: str
     latitude: float
@@ -18,22 +22,87 @@ class Location(BaseModel):
     timestamp: datetime
     status: Literal["online", "offline"]
 
-locations: list[Location] = []       # temporary in-memory storage
+
+def get_conn():
+    return pymysql.connect(
+        host=os.getenv("DB_HOST", "localhost"),
+        port=int(os.getenv("DB_PORT", 3306)),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        database=os.getenv("DB_NAME"),
+        cursorclass=pymysql.cursors.DictCursor,
+        autocommit=True,
+    )
+
+
+def init_db():
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS locations (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    device_id VARCHAR(50) NOT NULL,
+                    latitude DOUBLE NOT NULL,
+                    longitude DOUBLE NOT NULL,
+                    timestamp DATETIME NOT NULL,
+                    status VARCHAR(20) NOT NULL,
+                    INDEX idx_device (device_id)
+                )
+            """)
+    finally:
+        conn.close()
+
+
+init_db()                                 # creates the table on startup
+
 
 @app.get("/")
 def root():
     return {"message": "Tracker API is running"}
 
-@app.post("/locations", status_code=201)   # device sends data here
+
+@app.post("/locations", status_code=201)
 def add_location(loc: Location):
-    locations.append(loc)
+    ts = loc.timestamp
+    if ts.tzinfo is not None:             # store everything as UTC
+        ts = ts.astimezone(timezone.utc).replace(tzinfo=None)
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO locations (device_id, latitude, longitude, timestamp, status) "
+                "VALUES (%s, %s, %s, %s, %s)",
+                (loc.device_id, loc.latitude, loc.longitude, ts, loc.status),
+            )
+    finally:
+        conn.close()
     return loc
 
-@app.get("/locations")                      # dashboard reads data here
-def get_locations():
-    return locations
 
-@app.get("/locations/{device_id}/latest")   # latest point for one device
+@app.get("/locations")
+def get_locations():
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM locations ORDER BY id")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+
+@app.get("/locations/{device_id}/latest")
 def latest(device_id: str):
-    mine = [l for l in locations if l.device_id == device_id]
-    return mine[-1] if mine else {"error": "not found"}
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT * FROM locations WHERE device_id = %s ORDER BY id DESC LIMIT 1",
+                (device_id,),
+            )
+            row = cur.fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Device not found")
+    return row
