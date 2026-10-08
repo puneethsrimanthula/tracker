@@ -39,7 +39,7 @@ def init_db():
     conn = get_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""
+                        cur.execute("""
                 CREATE TABLE IF NOT EXISTS locations (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     device_id VARCHAR(50) NOT NULL,
@@ -47,7 +47,8 @@ def init_db():
                     longitude DOUBLE NOT NULL,
                     timestamp DATETIME NOT NULL,
                     status VARCHAR(20) NOT NULL,
-                    INDEX idx_device (device_id)
+                    received_at DATETIME NOT NULL DEFAULT (UTC_TIMESTAMP),
+                    INDEX idx_device_time (device_id, timestamp)
                 )
             """)
     finally:
