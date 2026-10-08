@@ -143,12 +143,14 @@ DATABASE (MySQL)
 - Next features: a device simulator that sends fake moving data, and a map view (`react-leaflet`).
 
 ## DAY 2:
+## Step 0: My answer before starting
 What happens to a location from the moment the ESP32 sends it to the moment it shows on the dashboard?
 
-The location is sent in HTTP POST(JSON format) from the ESP32 to the backend which is made of FastAPI. this file is verified that whether the location is in the required format or not . if it is in the required format then the JSON is sent to be posted into the Database(postgreSQL or MySQL). the Data base like a record bokk which contains all the locations till now even the backend is not running. whenever a DashBoard(react or Futter) is loaded then it request the backend throught RestAPI's (GET) to provide the data from the database to display on the dashboard. 
+The location is sent in HTTP POST(JSON format) from the ESP32 to the backend which is made of FastAPI. this data is validated that whether the location is in the required format or not . if it is in the required format then the backend runs an INSERT command to save it.(postgreSQL or MySQL). the Data base like a record bokk which contains all the locations till now even the backend is not running. whenever a DashBoard(react or Futter) is loaded then it request the backend throught RestAPI's (GET) to provide the data from the database to display on the dashboard. 
 
-# Step 1: Understanding the table:
-**in the database table(in MySQL) "id" ias the primary key but not device_id because any once device can send data multiple times but, everytime it sends the data the id will be different to differntiate the data sent by the same device
-**Coordinates are always in double because longitude and latitude in cannot have an integer value
-**NOTNULL means the data cannot be accepted without this fields. latitude cannot be NULL because wihtout latitude we cannot locate any device.
-**id field has ana extra feature of AUTO-INCREMENT which means everytime there is a new piece of data the id will be incremented automatically by MySQL itself 
+## Step 1: Understanding the table
+
+- **Primary key:** `id` is the primary key, not `device_id`, because one device sends many rows. `id` is different for every row, so each one can be told apart.
+- **DOUBLE:** coordinates need decimal places, and an INT would round them and put the device kilometres away.
+- **NOT NULL:** a row cannot be saved without this value. Latitude cannot be empty because without it we cannot locate the device.
+- **AUTO_INCREMENT:** MySQL fills in `id` itself and adds 1 for every new row.
