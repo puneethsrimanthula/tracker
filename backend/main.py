@@ -6,7 +6,7 @@ import pymysql
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 load_dotenv()                            # reads the .env file
 
@@ -16,9 +16,9 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"],
 
 
 class Location(BaseModel):
-    device_id: str
-    latitude: float
-    longitude: float
+    device_id: str = Field(min_length=1, max_length=50)
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
     timestamp: datetime
     status: Literal["online", "offline"]
 
