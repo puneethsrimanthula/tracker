@@ -141,3 +141,8 @@ DATABASE (MySQL)
 - Offline status is sent by the device. Better: the backend marks a device offline if no update arrives for 60 seconds.
 - CORS currently allows all origins. In production it should allow only the dashboard's address.
 - Next features: a device simulator that sends fake moving data, and a map view (`react-leaflet`).
+
+##DAY 2:
+What happens to a location from the moment the ESP32 sends it to the moment it shows on the dashboard?
+
+The location is sent in HTTP POST(JSON format) from the ESP32 to the backend which is made of FastAPI. this file is verified that whether the location is in the required format or not . if it is in the required format then the JSON is sent to be posted into the Database(postgreSQL or MySQL). the Data base like a record bokk which contains all the locations till now even the backend is not running. whenever a DashBoard(react or Futter) is loaded then it request the backend throught RestAPI's (GET) to provide the data from the database to display on the dashboard. 
